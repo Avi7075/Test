@@ -33,23 +33,81 @@ NU, NV = 181, 121
 th = np.linspace(-np.pi, np.pi, NU); ph = np.linspace(-np.pi / 2, np.pi / 2, NV)
 TH, PH = np.meshgrid(th, ph)
 D = np.stack([np.cos(PH) * np.sin(TH), np.sin(PH), np.cos(PH) * np.cos(TH)], -1).reshape(-1, 3)
-AXH = E('AXH', 8.3)          # half width incl. hair
-ax = np.where(D[:, 1] > -0.2, AXH, 7.6 + (AXH - 7.6) * np.clip((D[:, 1] + 0.6) / 0.4, 0, 1))
-by = np.where(D[:, 1] > 0, 12.4, 9.0); cz = np.where(D[:, 2] > 0, 9.3, E('BACK', 10.4))
+AXH = E('AXH', 9.2)          # half width incl. hair
+_t = np.clip((D[:, 1] + 0.62) / 0.6, 0, 1); ax = 7.6 + (AXH - 7.6) * _t * _t * (3 - 2 * _t)
+def _ss(x, a0, a1): t_ = np.clip((x - a0) / (a1 - a0), 0, 1); return t_ * t_ * (3 - 2 * t_)
+by = E('BY_BOT', 8.6) + (12.4 - E('BY_BOT', 8.6)) * _ss(D[:, 1], -0.3, 0.3)
+cz = E('CZF', 6.8) + (E('BACK', 10.4) - E('CZF', 6.8)) * _ss(-D[:, 2], -0.35, 0.25)
 re = 1 / np.sqrt((D[:, 0] / ax) ** 2 + (D[:, 1] / by) ** 2 + (D[:, 2] / cz) ** 2)
-fm = trimesh.Trimesh(Fu, Fc, process=False).subdivide_loop(2)
+# ---- skirt: extend the face mesh beyond its outer boundary, curling back around the head
+def outer_loop(F):
+    e = np.sort(np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]]), 1)
+    u, c = np.unique(e, axis=0, return_counts=True); b = u[c == 1]
+    adj = {}
+    for i, j in b: adj.setdefault(i, []).append(j); adj.setdefault(j, []).append(i)
+    seen = set(); loops = []
+    for st in adj:
+        if st in seen: continue
+        loop = [st]; seen.add(st); prev = None; cur = st
+        while True:
+            nx_ = [k for k in adj[cur] if k != prev and k not in seen]
+            if not nx_: break
+            prev, cur = cur, nx_[0]; loop.append(cur); seen.add(cur)
+        loops.append(loop)
+    return loops
+_loops = sorted(outer_loop(Fc), key=len)
+loop = np.array(_loops[-1])
+caps = []; capV = []
+for lp in _loops[:-1]:
+    lp = np.array(lp); ci = len(Fu) + len(capV); capV.append(Fu[lp].mean(0))
+    for i in range(len(lp)): caps.append([lp[i], lp[(i + 1) % len(lp)], ci])
+Fu_c = np.concatenate([Fu, np.array(capV)]) if capV else Fu
+cen_f = Fu[loop].mean(0)
+NR = int(E('SKIRT_RINGS', 8)); STEP = E('SKIRT_STEP', 0.7)
+rings = [Fu[loop]]
+for k in range(1, NR + 1):
+    v = Fu[loop]
+    o = v - cen_f; o[:, 2] = 0; o /= np.linalg.norm(o, axis=1, keepdims=True)
+    # curl angle grows with ring index; lower (jaw) part curls toward the neck
+    al = np.radians(E('CURL0', 30) + E('CURL_D', 17) * k)
+    dirs_k = np.cos(al) * o + np.sin(al) * np.array([0, 0, -1.0])
+    rings.append(rings[-1] + STEP * dirs_k)
+# smooth each ring along the loop to remove kinks
+for k in range(1, NR + 1):
+    r_ = rings[k]
+    for _ in range(3): r_ = 0.5 * r_ + 0.25 * (np.roll(r_, 1, 0) + np.roll(r_, -1, 0))
+    rings[k] = r_
+SV = np.concatenate([Fu_c] + rings[1:]); n_l = len(loop)
+idx_ring = [loop] + [len(Fu_c) + (k - 1) * n_l + np.arange(n_l) for k in range(1, NR + 1)]
+SF = []
+for k in range(NR):
+    a_, b_ = idx_ring[k], idx_ring[k + 1]
+    for i in range(n_l):
+        j = (i + 1) % n_l
+        SF.append([a_[i], b_[i], a_[j]]); SF.append([a_[j], b_[i], b_[j]])
+SF = np.concatenate([Fc, np.array(caps, int).reshape(-1, 3), np.array(SF)])
+fm = trimesh.Trimesh(SV, SF, process=False)
+fm = trimesh.Trimesh(fm.vertices, fm.faces, process=False).subdivide_loop(1)
 loc, ri, ti = fm.ray.intersects_location(np.repeat(C[None], len(D), 0), D, multiple_hits=False)
 rf = np.full(len(D), np.nan); rf[ri] = np.linalg.norm(loc - C, axis=1)
+KH = E('KHEAD', 0.45)
+r_sm = np.where(np.isnan(rf), re, KH * np.logaddexp(np.nan_to_num(rf) / KH, re / KH))
 hit = ~np.isnan(rf)
 delta = np.zeros(len(D)); delta[hit] = rf[hit] - re[hit]
 uvp = np.stack([TH.ravel(), PH.ravel()], 1)
 inside = Delaunay(uvp[hit]).find_simplex(uvp) >= 0
 dg = delta.reshape(NV, NU); hg = hit.reshape(NV, NU)
-decay = np.where(inside.reshape(NV, NU), 1.0, 0.93)
-for it in range(1500):
+decay_out = np.where(PH < E('LO_LAT', -0.15), E('DECAY_LO', 0.985), 0.93)
+decay = np.where(inside.reshape(NV, NU), 1.0, decay_out)
+for it in range(int(E('FILL_IT', 3000))):
     p = np.pad(dg, 1, mode='edge'); avg = (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:]) / 4
     dg = np.where(hg, dg, avg * decay)
-Vh = C + D * (re + dg.ravel())[:, None]
+rgrid = r_sm.reshape(NV, NU)
+fixed = np.zeros_like(hg)
+for it in range(int(E('SMOOTH_IT', 2))):
+    pr = np.pad(rgrid, 1, mode='edge'); avg = (pr[:-2, 1:-1] + pr[2:, 1:-1] + pr[1:-1, :-2] + pr[1:-1, 2:]) / 4
+    rgrid = np.where(fixed, rgrid, 0.5 * rgrid + 0.5 * avg)
+Vh = C + D * rgrid.ravel()[:, None]
 Fh = grid_faces(NU, NV)
 Hw = c2w(Vh)
 Fh = orient(Hw, Fh, lambda x: x - c2w(C[None])[0])
@@ -110,7 +168,8 @@ for k in range(nb + 1):
     f = k / nb
     ab = hbpt + (rimpt - hbpt) * f
     curl = E('CURL', 0.0) * max(0, (f - 0.7) / 0.3) ** 2      # slight upturn of the edge
-    rows_u.append(toW(ab, -thick / 2 + curl)); rows_t.append(toW(ab, thick / 2 + curl))
+    zc_ = np.array([0, 0, -E('CURLZ', 1.6) * f ** 2])
+    rows_u.append(toW(ab, -thick / 2 + curl) + zc_); rows_t.append(toW(ab, thick / 2 + curl) + zc_)
 Vbu = np.concatenate(rows_u); Vbt = np.concatenate(rows_t)
 Fb = grid_faces(NA + 1, nb + 1)
 UVb = np.stack([np.tile(np.linspace(0, 1, NA + 1), nb + 1), np.repeat(np.linspace(0, 1, nb + 1), NA + 1)], 1)
@@ -163,15 +222,20 @@ neck_w = (xs.max() - xs.min()) / 2 / s if len(xs) else 5.6
 print('neck centre x', neck_cx, 'half width', neck_w)
 nz_c = c2w(np.array([[0, -9.0, -2.6]]))[0, 2]
 def centre(y):
-    w = np.clip((y - (y_chin - 4)) / 6.0, 0, 1)
+    w = np.clip((y - (y_chin + E('CEN_LO', 1.0))) / 5.0, 0, 1)
     w = w * w * (3 - 2 * w)
     return np.stack([neck_cx * (1 - w) + Cw[0] * w, nz_c * (1 - w) + Cw[2] * w], -1)
 # body cross-section table: d=y-y_chin : half width, front depth, back depth, exponent
 NW = E('NECKW', neck_w)
+chin_w = P[152] / s
+fmax = chin_w[2] - nz_c - E('CHIN_STEP', 1.6)
+print('neck front depth max', fmax)
 tab = np.array([
-    [6.0, NW * 0.9, 4.4, 5.4, 2.0],
-    [0.0, NW + 0.2, 5.4, 6.0, 2.0],
-    [-2.0, NW + 0.8, 5.8, 7.0, 2.1],
+    [7.0, 1.0, 0.8, 0.8, 2.0],
+    [5.0, NW * 0.85, 4.2, 5.2, 2.0],
+    [2.0, NW + 0.1, min(fmax, 4.6), 5.8, 2.0],
+    [0.0, NW + 0.3, min(fmax, 4.9), 6.0, 2.0],
+    [-2.0, NW + 0.8, 5.6, 7.0, 2.1],
     [-3.6, NW + 3.2, 6.6, 8.0, 2.3],
     [-5.5, 13.0, 8.0, 7.6, 2.5],
     [-7.5, 16.8, 9.6, 8.6, 2.8],
@@ -185,17 +249,17 @@ def body_r(y, thv):
     bz = np.where(np.cos(thv) > 0, bf, bb)
     cth, sth = np.abs(np.cos(thv)), np.abs(np.sin(thv))
     r = 1 / ((sth / a) ** ex + (cth / bz) ** ex) ** (1 / ex)
-    return np.where(d > 6.0, 0.0, r)
+    return np.where(d > 7.0, 0.0, r)
 # rows
 y_bot = y_chin - 16.5
 y_top = Hw2[:, 1].max() - 0.05
 y_face_lo, y_face_hi = y_chin - 3.0, Fu[10, 1] * 0 + c2w(Fu[[10]])[0, 1] + 2.5
 ys = np.concatenate([np.linspace(y_bot, y_face_lo, 26, endpoint=False),
-                     np.linspace(y_face_lo, y_face_hi, int(E('NFACE', 104)), endpoint=False),
+                     np.linspace(y_face_lo, y_face_hi, int(E('NFACE', 98)), endpoint=False),
                      np.linspace(y_face_hi, y_top, 18)])
 # columns: denser around face direction
 face_dir = (c2w(np.array([[0, 0, 1.]])) - tw)[0]; th_face = np.arctan2(face_dir[0], face_dir[2])
-g = np.linspace(-1, 1, int(E('NCOL', 161)))
+g = np.linspace(-1, 1, int(E('NCOL', 151)))
 thv = th_face + np.pi * np.sign(g) * (0.55 * np.abs(g) + 0.45 * np.abs(g) ** 2.2)
 NJ, NK = len(thv), len(ys)
 YY, TT = np.meshgrid(ys, thv, indexing='ij')
@@ -206,10 +270,16 @@ lc, ri2, _ = head.ray.intersects_location(orig, -dirv, multiple_hits=False)
 rh = np.zeros(YY.size); rh[ri2] = 60 - np.linalg.norm(lc - orig[ri2], axis=1)
 rh = np.maximum(rh, 0)
 rb = body_r(YY.ravel(), TT.ravel() - th_face * 0)
-k_ = 0.7
+k_ = E('KSMOOTH', 1.1)
 rr = k_ * np.logaddexp(rh / k_, rb / k_)
 rr = np.where((rh <= 0) & (rb <= 0), 0, rr)
 rr = np.where(rh <= 0, rb, np.where(rb <= 0, rh, rr))
+rrg = rr.reshape(NK, NJ)
+dd = ys - y_chin
+band = np.clip(1 - np.abs(dd - 1.0) / E('BAND_H', 3.6), 0, 1)[:, None]
+from scipy import ndimage as _nd
+rr_s = _nd.gaussian_filter(rrg, (E('SM_ROW', 2.6), E('SM_COL', 0.8)), mode=['nearest', 'wrap'])
+rr = (rrg * (1 - band) + rr_s * band).ravel()
 # top rows: if no hit, shrink to centre
 Vl = np.stack([cen[:, 0], YY.ravel(), cen[:, 1]], 1) + dirv * rr[:, None]
 Vl = Vl.reshape(NK, NJ, 3)
@@ -226,6 +296,9 @@ NK2 = NK + 2
 seg_len = np.linalg.norm(np.diff(Vl, axis=1), axis=2)
 arc = np.concatenate([np.zeros((NK2, 1)), np.cumsum(seg_len, 1)], 1)
 arc = (arc - arc[:, [NJ // 2]]).ravel()
+vlen = np.linalg.norm(np.diff(Vl, axis=0), axis=2)
+varc = np.concatenate([np.zeros((1, NJ)), np.cumsum(vlen, 0)], 0)   # along columns, from bottom row upward
+varc = (varc[-1:] - varc).ravel()                                      # distance down from the apex
 Vl = Vl.reshape(-1, 3)
 Fl = grid_faces(NJ, NK2)
 UVl = np.stack([np.tile(np.linspace(0, 1, NJ), NK2), np.repeat(np.linspace(1, 0, NK2), NJ)], 1)
@@ -238,6 +311,6 @@ meshes = {
     'brim_under': (Vbu, Fbu, UVb), 'brim_top': (Vbt, Fbt, UVb), 'brim_rim': (Vr, Fr, UVr),
     'crown_out': (Vco, Fco, UVc), 'crown_in': (Vci, Fci, UVc)}
 meta = dict(s=s, R=R, t=t, tw=tw, y_chin=y_chin, Cw=Cw, n=n, e1=e1, e2=e2, anchor=anchor, hc2=hc2, ha=ha, hb=hb,
-            th_face=th_face, NJ=NJ, NK2=NK2, arc=arc)
+            th_face=th_face, NJ=NJ, NK2=NK2, arc=arc, varc=varc)
 pickle.dump((meshes, meta), open(S + 'scene2.pkl', 'wb'))
 print({k: (len(v[0]), len(v[1])) for k, v in meshes.items()})
