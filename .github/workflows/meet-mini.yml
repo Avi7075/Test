@@ -1,0 +1,42 @@
+name: Build Meet Mini
+
+on:
+  push:
+    paths:
+      - 'meet-mini-app/**'
+      - '.github/workflows/meet-mini.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: meet-mini-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build:exe -- --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeetMini
+          path: meet-mini-app/dist/MeetMini.exe
+      # Publish the .exe as a downloadable file on the repo's Releases page.
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=meet-mini-latest
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/MeetMini.exe --clobber
+          else
+            gh release create "$tag" dist/MeetMini.exe --target "$GITHUB_SHA" \
+              --title "Meet Mini (Windows)" --notes "Download MeetMini.exe and double-click it."
+          fi
