@@ -2,12 +2,15 @@
 
 A tiny Chrome/Edge extension that pops **one** Google Meet participant into an
 always-on-top Picture-in-Picture window that holds *only their video*, with
-no Meet tiles, names or toolbar. The video is cropped to fill the whole window,
-so you can make the window really small and still see them clearly.
+no Meet tiles, names or toolbar.
 
-Meet's own PiP squeezes the call layout into the window. When the other person
-is on a phone (a portrait feed), the shrunk window leaves their tile as a thin
-strip. This extension fixes that.
+The window is locked to the video's own shape (16:9 for a landscape feed).
+Their whole frame always shows, never cropped and with no black bars. Drag
+the window as small as you like and it keeps that shape.
+
+Meet's own PiP squeezes the call layout into the window, so the person you
+want ends up a tiny tile inside an already small window. This extension fixes
+that.
 
 ## Install (about 1 minute)
 
@@ -25,18 +28,9 @@ Needs Chrome/Edge 116 or newer.
    **Alt+Shift+P**.
 3. Resize the PiP window as small as you like. Its size is remembered.
 
-In the PiP window:
-
-| Action | What it does |
-| --- | --- |
-| Scroll | Zoom in (crop to their face) |
-| Drag | Pan the crop |
-| Double-click / `F` / ▣ | Toggle crop-to-fill vs. show whole frame |
-| `N` / ⇄ | Switch to the next person (if it picked your self-view) |
-| `0` / ↺ | Reset zoom & pan |
-
-The first time, the window opens at the person's own aspect ratio (tall for a
-phone), 140px wide.
+To switch to a different person (for example, if it picked your own
+self-view), click the **⏭ next** button in the PiP window or press
+**Alt+Shift+N** in the Meet tab.
 
 ## Notes
 
@@ -45,6 +39,8 @@ phone), 140px wide.
 - The PiP window shows the picture only. Audio still comes from the Meet tab
   as usual.
 - Chrome sets a minimum size for PiP windows, so there's a floor you can't go
-  below. Because the video fills every pixel, the small size still works.
+  below.
+- The window takes the shape of the video she sends. If her phone is held
+  upright, the window is upright too. Turning her phone sideways gives 16:9.
 - If Meet changes its page structure, the auto-pick may choose the wrong feed.
-  Press `N` to cycle.
+  Use ⏭ / Alt+Shift+N to cycle.
