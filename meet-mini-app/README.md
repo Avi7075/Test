@@ -7,10 +7,11 @@ her phone is upright, it's letterboxed inside the 16:9 frame.
 
 ## Install
 
-1. Download `MeetMini-Windows.zip` and unzip it anywhere (e.g. your Desktop).
-2. Open the `Meet Mini-win32-x64` folder and double-click **Meet Mini.exe**.
+1. Download **MeetMini.exe**. It's a single file, so there's nothing to unzip.
+2. Double-click it.
    - If Windows SmartScreen says "Windows protected your PC", click
      **More info → Run anyway** (the app isn't code-signed).
+   - The first launch takes a few seconds while it unpacks itself.
 
 ## Use
 
@@ -46,5 +47,5 @@ Needs Node.js 18+.
 ```
 npm install
 npm start              # run it
-npm run package:win    # build dist/Meet Mini-win32-x64
+npm run build:exe      # build dist/MeetMini.exe (portable, single file)
 ```

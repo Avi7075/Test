@@ -7,10 +7,32 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "package:win": "electron-packager . \"Meet Mini\" --platform=win32 --arch=x64 --out=dist --overwrite --ignore=^/dist"
+    "package:win": "electron-packager . \"Meet Mini\" --platform=win32 --arch=x64 --out=dist --overwrite --ignore=^/dist",
+    "build:exe": "electron-builder --win portable --x64"
   },
   "devDependencies": {
     "@electron/packager": "18.3.6",
-    "electron": "44.7.0"
+    "electron": "44.7.0",
+    "electron-builder": "^26.17.0"
+  },
+  "build": {
+    "appId": "local.meetmini",
+    "productName": "Meet Mini",
+    "files": [
+      "main.js",
+      "mini.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "MeetMini.exe"
+    }
   }
 }
