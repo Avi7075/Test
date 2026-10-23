@@ -1,0 +1,16 @@
+{
+  "name": "meet-mini",
+  "productName": "Meet Mini",
+  "version": "1.0.0",
+  "description": "Google Meet in its own window, with a tiny always-on-top 16:9 view of one person.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package:win": "electron-packager . \"Meet Mini\" --platform=win32 --arch=x64 --out=dist --overwrite --ignore=^/dist"
+  },
+  "devDependencies": {
+    "@electron/packager": "18.3.6",
+    "electron": "44.7.0"
+  }
+}
