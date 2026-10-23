@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Meet Mini PiP",
+  "version": "1.0.0",
+  "description": "Pop one Google Meet participant into a tiny always-on-top window where their video fills the whole window.",
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ]
+}
