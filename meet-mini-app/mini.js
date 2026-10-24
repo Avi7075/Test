@@ -4,7 +4,8 @@
 (() => {
   if (window.__meetMiniOpen) return;
 
-  const state = { win: null, video: null, label: null, bar: null, srcEl: null, stream: null, timer: 0 };
+  // manual: you picked someone with N, so don't auto-switch away from them.
+  const state = { win: null, video: null, label: null, bar: null, srcEl: null, stream: null, manual: false, timer: 0 };
 
   // ---------- Meet's own mic / camera / share buttons ----------
 
@@ -54,12 +55,15 @@
     return !!track && track.readyState === 'live';
   };
 
-  // One entry per distinct stream: remote people first, then by on-page size.
+  // One entry per distinct stream whose video is actually showing (a camera
+  // that's turned off stops sending frames, or Meet hides its tile).
+  // Other people first, then by on-page size.
   const candidates = () => {
     const byStream = new Map();
     for (const el of document.querySelectorAll('video')) {
       const stream = el.srcObject;
       if (!(stream instanceof MediaStream) || !isLive(stream) || !el.videoWidth) continue;
+      if (stream.getVideoTracks()[0].muted || !el.getClientRects().length) continue;
       const r = el.getBoundingClientRect();
       const entry = { el, stream, area: r.width * r.height, self: isMirrored(el) };
       const prev = byStream.get(stream.id);
@@ -84,6 +88,7 @@
     if (!list.length) return;
     const i = list.findIndex((c) => c.stream === state.stream);
     setSource(list[(i + 1) % list.length]);
+    state.manual = true;
   };
 
   const updateBar = () => {
@@ -95,17 +100,22 @@
     }
   };
 
-  // Keep following the chosen person if Meet swaps streams around.
+  // Every second: show her whenever her camera is on, fall back to you when
+  // it's off, and follow her if Meet swaps her video to a new element.
   const tick = () => {
     updateBar();
-    const el = state.srcEl;
-    if (el && el.isConnected && isLive(el.srcObject)) {
-      if (el.srcObject !== state.stream) setSource({ el, stream: el.srcObject });
+    const list = candidates();
+    const swapped = state.srcEl && state.srcEl.isConnected ? state.srcEl.srcObject : null;
+    const current =
+      list.find((c) => c.stream === state.stream) || list.find((c) => c.stream === swapped && !c.self);
+    if (current && state.manual) {
+      if (current.stream !== state.stream) setSource(current);
       return;
     }
-    if (isLive(state.stream)) return; // element gone but stream still flowing
-    const first = candidates()[0];
-    if (first) setSource(first);
+    state.manual = false;
+    const best = list[0] || null;
+    if (!current || (current.self && best && !best.self)) setSource(best);
+    else if (current.stream !== state.stream) setSource(current);
   };
 
   const build = (win) => {

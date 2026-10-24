@@ -35,6 +35,11 @@ her phone is upright, it's letterboxed inside the 16:9 frame.
 | `N` | Switch person (if it picked your own camera) |
 | `Esc` | Close it |
 
+She always comes first: whenever her camera is on, the mini window shows her.
+When she turns it off it shows you, and it switches back to her automatically
+when she turns it on again. If you pick someone with `N`, it stays on them
+until their video stops.
+
 Its size, position and shape setting are remembered.
 
 **Sharing your screen** (from Meet or the 🖥 button) opens a "Choose what to
