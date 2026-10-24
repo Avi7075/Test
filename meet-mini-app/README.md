@@ -15,7 +15,9 @@ her phone is upright, it's letterboxed inside the 16:9 frame.
 
 ## Use
 
-1. In the Meet Mini window, join the call like normal.
+1. In the Meet Mini window, click the blue **Join call** button (bottom-right)
+   to go straight to the call. The link is `CALL_URL` at the top of `main.js`.
+   Change it there to join a different call.
    - If Google says *"This browser or app may not be secure"* when you sign in,
      join without signing in: open the meeting link and enter a name. She
      admits you from her phone.
@@ -26,12 +28,17 @@ her phone is upright, it's letterboxed inside the 16:9 frame.
 | Do this | To |
 | --- | --- |
 | Drag anywhere on it | Move it |
-| Drag its edges | Resize (stays 16:9) |
-| `-` / `+` | Shrink / grow |
+| Drag its edges, or `-` / `+` | Resize (keeps its shape) |
+| `O` | Shape: **auto** (follows her video, upright when her phone is upright) → always landscape → always portrait |
+| Click it once | Show the 🎤 mic, 📷 camera and 🖥 share-screen buttons (red = off) |
+| `M` / `C` / `S` | Mic / camera / share screen, from the keyboard |
 | `N` | Switch person (if it picked your own camera) |
 | `Esc` | Close it |
 
-Its size and position are remembered.
+Its size, position and shape setting are remembered.
+
+**Sharing your screen** (from Meet or the 🖥 button) opens a "Choose what to
+share" window. Click the screen or window you want to share.
 
 ## Tips
 

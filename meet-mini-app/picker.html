@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src data:; style-src 'unsafe-inline'">
+<title>Choose what to share</title>
+<style>
+  body { margin: 0; padding: 16px; font: 14px system-ui, sans-serif; background: #202124; color: #e8eaed; }
+  h2 { margin: 4px 0 12px; font-size: 15px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  button.src { padding: 8px; border: 2px solid transparent; border-radius: 8px; background: #303134;
+               color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  button.src:hover, button.src:focus { border-color: #8ab4f8; outline: none; }
+  button.src img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 4px; }
+  button.src span { display: block; margin-top: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .cancel { position: sticky; bottom: 0; text-align: right; }
+  .cancel button { padding: 8px 18px; border: 0; border-radius: 18px; background: #3c4043; color: #e8eaed; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h2>Entire screen</h2>
+  <div class="grid" id="screens"></div>
+  <h2>Window</h2>
+  <div class="grid" id="windows"></div>
+  <div class="cancel"><button id="cancel">Cancel</button></div>
+  <script src="picker.js"></script>
+</body>
+</html>

@@ -22,6 +22,9 @@
       "main.js",
       "mini.js",
       "preload.js",
+      "picker.html",
+      "picker.js",
+      "picker-preload.js",
       "package.json"
     ],
     "directories": {
